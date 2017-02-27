@@ -21,6 +21,27 @@ library(forcats)
 library(sparklyr)
 library(trelliscopejs)
 
+all_airlines <- rbind(
+  airlines,
+  tribble(
+     ~carrier, ~name,
+     "OH",     "Comair Inc.",
+     "NW",     "Northwest Airlines Inc.",
+     "CO",     "Continental Airlines Inc.",
+     "XE",     "ExpressJet Airlines Inc.",
+     "AQ",     "Aloha Air"
+   )
+) %>%
+  mutate(
+    # shorten the names
+    name = gsub(
+      " Airlines Inc\\.| Airlines Co\\.| Inc\\.| Air Lines Inc\\.| Airways Corporation| Airways",
+      "",
+      name)) %>%
+  as.data.frame() %>%
+  print()
+
+
 sc <- spark_connect(master = "local")
 
 flights_tbl <- spark_read_csv(sc, "flights_csv", data_path)
@@ -36,26 +57,31 @@ cr_arr_delay <- flights_tbl %>%
     mean_delay = mean(arr_delay),
     n = n()) %>%
   arrange(mean_delay) %>%
-  collect()
-
-cr_arr_delay
+  collect() %>%
+  print()
 
 # merge the airline info so we know who the carriers are
-cr_arr_delay <- left_join(cr_arr_delay, airlines)
-
-cr_arr_delay
+cr_arr_delay <- left_join(cr_arr_delay, all_airlines) %>% print()
 
 # visualize the local results...
 
 ggplot(cr_arr_delay, aes(fct_reorder(name, mean_delay), mean_delay)) +
   geom_point() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  xlab(NULL) + ylab("Arrival Delay (minutes)")
+  labs(x = NULL, y = "Arrival Delay (minutes)")
 
 ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
   geom_point() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  xlab(NULL) + ylab("Total Flights")
+  labs(x = NULL, y = "Total Flights")
+
+ggplot(cr_arr_delay, aes(n, mean_delay, label = name)) +
+  geom_point() +
+  geom_text(hjust = 0, nudge_x = 10000, angle = 0) +
+  geom_hline(yintercept = 0, color = "red") +
+  xlim(0, 1.5e6) +
+  labs(x = "Total Flights", y = "Mean Delay")
+
 
 # # ideally plot median with quartile lines...
 # ggplot(cr_arr_delay, aes(fct_reorder(name, arr_delay50), arr_delay50)) +
@@ -64,16 +90,17 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
 #   xlab(NULL) + ylab("Arrival Delay (minutes)")
 
 # the top 7 airlines
-cr_arr_delay %>% filter(n > 380000) %>% select(carrier)
-
-top7 <- c("US", "WN", "OO", "DL", "MQ", "UA", "AA")
+top7 <- cr_arr_delay %>% filter(n > 380000) %>% select(carrier) %>% print()
+top7 <- unlist(top7, use.names = FALSE)
+# top7 <- c("US", "WN", "OO", "DL", "MQ", "UA", "AA")
 
 # let's summarize just by month
 mn_arr_delay <- flights_tbl %>%
   group_by(month) %>%
   summarise(mean_delay = mean(arr_delay)) %>%
   arrange(month) %>%
-  collect()
+  collect() %>%
+  print()
 
 ## is there more to these high-level summaries?
 ## let's see how these means vary over time - aggregate monthly
@@ -84,7 +111,8 @@ cr_mn_arr_delay <- flights_tbl %>%
     mean_delay = mean(arr_delay),
     n = n()) %>%
   collect() %>%
-  left_join(airlines)
+  left_join(all_airlines) %>%
+  print()
 
 # look at monthly mean delay
 ggplot(cr_mn_arr_delay, aes(month, mean_delay)) +
@@ -126,8 +154,9 @@ route_summ <- flights_tbl %>%
     mean_delay = mean(arr_delay),
     n = n()) %>%
   filter(n >= 50) %>%
-  collect()
-  
+  collect() %>%
+  print()
+
 nrow(route_summ)
 # much smaller data set of ~51k summaries
 
@@ -138,18 +167,20 @@ nrow(route_summ)
 # also, we want to add in the carrier name so let's join that too
 # we want carrier to be a factor for our plots
 
-route_summ7 <- 
+route_summ7 <-
   filter(route_summ, carrier %in% top7) %>%
-  left_join(airlines) %>%
+  left_join(all_airlines) %>%
   rename(carrier_name = name) %>%
-  mutate(carrier_name = factor(carrier_name))
+  mutate(carrier_name = factor(carrier_name)) %>%
+  print()
 
 # now let's nest the data by origin and dest (need to explain this...)
+# http://r4ds.had.co.nz/many-models.html
 by_route <- route_summ7 %>%
   group_by(origin, dest) %>%
-  nest()
+  nest() %>%
+  print()
 
-by_route
 
 # there are ~2.2k routes, the data for each is stored in the 'data' column
 
@@ -165,12 +196,13 @@ by_route <- by_route %>%
     n_carriers = map_int(data, ~ n_distinct(.$carrier))
     # miny = map_dbl(data, ~ min(.$mean_delay, na.rm = TRUE)),
     # maxy = map_dbl(data, ~ max(.$mean_delay, na.rm = TRUE))
-  )
+  ) %>%
+  print()
 
-by_route
-
-by_route <- filter(by_route, n_months == 12) %>%
-  select(-n_months)
+by_route <- by_route %>%
+  filter(n_months == 12) %>%
+  select(-n_months) %>%
+  print()
 
 # now we have 1.7k routes
 
@@ -179,18 +211,28 @@ by_route <- by_route %>%
   mutate(
     plot = map_plot(data, function(x) {
       ggplot(x, aes(month, mean_delay, color = carrier_name)) +
-        geom_line(aes(month, mean_delay), data = mn_arr_delay,
-          color = "gray", size = 1) +
-        geom_point() + geom_line() +
-        ylim(c(-33.5, 96.25)) +
-        scale_color_discrete(drop = FALSE)
+        geom_line(
+          aes(month, mean_delay),
+          data = mn_arr_delay,
+          color = "gray",
+          size = 1) +
+        geom_point() +
+        geom_line() +
+        scale_x_continuous(
+          breaks = 1:12,
+          labels = month(1:12, label = TRUE, abbr = TRUE),
+          minor_breaks = FALSE) +
+        scale_y_continuous("mean delay", limits = c(-33.5, 96.25)) +
+        scale_color_discrete(drop = FALSE) +
+        guides(color = guide_legend("carrier", nrow = 3)) +
+        theme(legend.position = "bottom")
     })
-  )
+  ) %>%
+  print()
 
-by_route
-
-trelliscope(by_route2, name = "test", nrow = 2, ncol = 4)
-
+by_route %>%
+  trelliscope(name = "test", nrow = 2, ncol = 4)
+# ~ 10 minutes to produce
 
 
 
