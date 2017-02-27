@@ -175,6 +175,7 @@ route_summ7 <-
   print()
 
 # now let's nest the data by origin and dest (need to explain this...)
+# http://r4ds.had.co.nz/many-models.html
 by_route <- route_summ7 %>%
   group_by(origin, dest) %>%
   nest() %>%
