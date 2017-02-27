@@ -90,9 +90,9 @@ ggplot(cr_arr_delay, aes(n, mean_delay, label = name)) +
 #   xlab(NULL) + ylab("Arrival Delay (minutes)")
 
 # the top 7 airlines
-cr_arr_delay %>% filter(n > 380000) %>% select(carrier)
-
-top7 <- c("US", "WN", "OO", "DL", "MQ", "UA", "AA")
+top7 <- cr_arr_delay %>% filter(n > 380000) %>% select(carrier) %>% print()
+top7 <- unlist(top7, use.names = FALSE)
+# top7 <- c("US", "WN", "OO", "DL", "MQ", "UA", "AA")
 
 # let's summarize just by month
 mn_arr_delay <- flights_tbl %>%
