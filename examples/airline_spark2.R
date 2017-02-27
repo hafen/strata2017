@@ -21,6 +21,27 @@ library(forcats)
 library(sparklyr)
 library(trelliscopejs)
 
+all_airlines <- rbind(
+  airlines,
+  tribble(
+     ~carrier, ~name,
+     "OH",     "Comair Inc.",
+     "NW",     "Northwest Airlines Inc.",
+     "CO",     "Continental Airlines Inc.",
+     "XE",     "ExpressJet Airlines Inc.",
+     "AQ",     "Aloha Air"
+   )
+) %>%
+  mutate(
+    # shorten the names
+    name = gsub(
+      " Airlines Inc\\.| Airlines Co\\.| Inc\\.| Air Lines Inc\\.| Airways Corporation| Airways",
+      "",
+      name)) %>%
+  as.data.frame() %>%
+  print()
+
+
 sc <- spark_connect(master = "local")
 
 flights_tbl <- spark_read_csv(sc, "flights_csv", data_path)
