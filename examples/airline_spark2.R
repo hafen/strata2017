@@ -75,6 +75,14 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(x = NULL, y = "Total Flights")
 
+ggplot(cr_arr_delay, aes(n, mean_delay, label = name)) +
+  geom_point() +
+  geom_text(hjust = 0, nudge_x = 10000, angle = 0) +
+  geom_hline(yintercept = 0, color = "red") +
+  xlim(0, 1.5e6) +
+  labs(x = "Total Flights", y = "Mean Delay")
+
+
 # # ideally plot median with quartile lines...
 # ggplot(cr_arr_delay, aes(fct_reorder(name, arr_delay50), arr_delay50)) +
 #   geom_pointrange(aes(ymin = arr_delay25, ymax = arr_delay75)) +
