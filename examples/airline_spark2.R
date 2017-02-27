@@ -68,12 +68,12 @@ cr_arr_delay <- left_join(cr_arr_delay, all_airlines) %>% print()
 ggplot(cr_arr_delay, aes(fct_reorder(name, mean_delay), mean_delay)) +
   geom_point() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  xlab(NULL) + ylab("Arrival Delay (minutes)")
+  labs(x = NULL, y = "Arrival Delay (minutes)")
 
 ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
   geom_point() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  xlab(NULL) + ylab("Total Flights")
+  labs(x = NULL, y = "Total Flights")
 
 # # ideally plot median with quartile lines...
 # ggplot(cr_arr_delay, aes(fct_reorder(name, arr_delay50), arr_delay50)) +
