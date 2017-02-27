@@ -167,9 +167,9 @@ nrow(route_summ)
 # also, we want to add in the carrier name so let's join that too
 # we want carrier to be a factor for our plots
 
-route_summ7 <- 
+route_summ7 <-
   filter(route_summ, carrier %in% top7) %>%
-  left_join(airlines) %>%
+  left_join(all_airlines) %>%
   rename(carrier_name = name) %>%
   mutate(carrier_name = factor(carrier_name)) %>%
   print()
