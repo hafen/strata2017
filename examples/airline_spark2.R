@@ -181,7 +181,6 @@ by_route <- route_summ7 %>%
   nest() %>%
   print()
 
-by_route
 
 # there are ~2.2k routes, the data for each is stored in the 'data' column
 
@@ -212,19 +211,28 @@ by_route <- by_route %>%
   mutate(
     plot = map_plot(data, function(x) {
       ggplot(x, aes(month, mean_delay, color = carrier_name)) +
-        geom_line(aes(month, mean_delay), data = mn_arr_delay,
-          color = "gray", size = 1) +
-        geom_point() + geom_line() +
-        ylim(c(-33.5, 96.25)) +
-        scale_color_discrete(drop = FALSE)
+        geom_line(
+          aes(month, mean_delay),
+          data = mn_arr_delay,
+          color = "gray",
+          size = 1) +
+        geom_point() +
+        geom_line() +
+        scale_x_continuous(
+          breaks = 1:12,
+          labels = month(1:12, label = TRUE, abbr = TRUE),
+          minor_breaks = FALSE) +
+        scale_y_continuous("mean delay", limits = c(-33.5, 96.25)) +
+        scale_color_discrete(drop = FALSE) +
+        guides(color = guide_legend("carrier", nrow = 3)) +
+        theme(legend.position = "bottom")
     })
-
-by_route
-
-trelliscope(by_route2, name = "test", nrow = 2, ncol = 4)
   ) %>%
   print()
 
+by_route %>%
+  trelliscope(name = "test", nrow = 2, ncol = 4)
+# ~ 10 minutes to produce
 
 
 
