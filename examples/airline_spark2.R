@@ -57,14 +57,11 @@ cr_arr_delay <- flights_tbl %>%
     mean_delay = mean(arr_delay),
     n = n()) %>%
   arrange(mean_delay) %>%
-  collect()
-
-cr_arr_delay
+  collect() %>%
+  print()
 
 # merge the airline info so we know who the carriers are
-cr_arr_delay <- left_join(cr_arr_delay, airlines)
-
-cr_arr_delay
+cr_arr_delay <- left_join(cr_arr_delay, all_airlines) %>% print()
 
 # visualize the local results...
 
@@ -94,7 +91,8 @@ mn_arr_delay <- flights_tbl %>%
   group_by(month) %>%
   summarise(mean_delay = mean(arr_delay)) %>%
   arrange(month) %>%
-  collect()
+  collect() %>%
+  print()
 
 ## is there more to these high-level summaries?
 ## let's see how these means vary over time - aggregate monthly
@@ -105,7 +103,8 @@ cr_mn_arr_delay <- flights_tbl %>%
     mean_delay = mean(arr_delay),
     n = n()) %>%
   collect() %>%
-  left_join(airlines)
+  left_join(all_airlines) %>%
+  print()
 
 # look at monthly mean delay
 ggplot(cr_mn_arr_delay, aes(month, mean_delay)) +
@@ -147,8 +146,9 @@ route_summ <- flights_tbl %>%
     mean_delay = mean(arr_delay),
     n = n()) %>%
   filter(n >= 50) %>%
-  collect()
-  
+  collect() %>%
+  print()
+
 nrow(route_summ)
 # much smaller data set of ~51k summaries
 
@@ -163,12 +163,14 @@ route_summ7 <-
   filter(route_summ, carrier %in% top7) %>%
   left_join(airlines) %>%
   rename(carrier_name = name) %>%
-  mutate(carrier_name = factor(carrier_name))
+  mutate(carrier_name = factor(carrier_name)) %>%
+  print()
 
 # now let's nest the data by origin and dest (need to explain this...)
 by_route <- route_summ7 %>%
   group_by(origin, dest) %>%
-  nest()
+  nest() %>%
+  print()
 
 by_route
 
@@ -186,12 +188,13 @@ by_route <- by_route %>%
     n_carriers = map_int(data, ~ n_distinct(.$carrier))
     # miny = map_dbl(data, ~ min(.$mean_delay, na.rm = TRUE)),
     # maxy = map_dbl(data, ~ max(.$mean_delay, na.rm = TRUE))
-  )
+  ) %>%
+  print()
 
-by_route
-
-by_route <- filter(by_route, n_months == 12) %>%
-  select(-n_months)
+by_route <- by_route %>%
+  filter(n_months == 12) %>%
+  select(-n_months) %>%
+  print()
 
 # now we have 1.7k routes
 
@@ -206,11 +209,12 @@ by_route <- by_route %>%
         ylim(c(-33.5, 96.25)) +
         scale_color_discrete(drop = FALSE)
     })
-  )
 
 by_route
 
 trelliscope(by_route2, name = "test", nrow = 2, ncol = 4)
+  ) %>%
+  print()
 
 
 
