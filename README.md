@@ -1,6 +1,6 @@
-# Strata
+# Strata Hadoop World 2017 Exploration with R Tutorial
 
-Welcome to the repository for the "Exploration and visualization of large, complex datasets with R, Hadoop, and Spark" tutorial that will be given at Strata HadoopWorld on Tuesday, March 14, 2017, 9:00am–12:30pm.
+Welcome to the repository for the "Exploration and visualization of large, complex datasets with R, Hadoop, and Spark" tutorial that will be given at Strata Hadoop World on Tuesday, March 14, 2017, 9:00am–12:30pm.
 
 ## Installation
 
