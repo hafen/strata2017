@@ -56,4 +56,6 @@ We will host the course material and data on this repository. We won't place it 
 The following resources can be useful to browse prior to the tutorial to help attendees have a better understanding of some concepts that will be built upon.
 
 - [R for Data Science](http://r4ds.had.co.nz/)
+- [dplyr vignette](https://cran.r-project.org/web/packages/dplyr/vignettes/introduction.html)
+- [ggplot2 cheatsheet](https://www.rstudio.com/wp-content/uploads/2016/11/ggplot2-cheatsheet-2.1.pdf)
 - [SparklyR documentation](http://spark.rstudio.com/dplyr.html)
