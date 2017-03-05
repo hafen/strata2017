@@ -1,0 +1,403 @@
+---
+title: "Exploration and visualization of large, complex datasets with R, Hadoop, and Spark"
+author: Stephen Elston and Ryan Hafen
+output: html_notebook
+---
+
+## Instalation directions. 
+
+Before installing the R packages insure the Java JDK is installed. You can download and install thj JDK from [here](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)  
+
+Before you start you must have installed the following R packages shown in the list below. We recommend that you follow the order shown here:  
+  
+- install.packages("devtools")  
+- install.packages("tidyverse")    
+- install.packages("nycflights13")  
+-  install.packages("sparklyr") # Use version 0.5.1  
+- install.packages("digest")  
+- install.packages('scales')  
+- install.packages('prettyunits')  
+- devtools::install_github("hafen/trelliscopejs")  
+- install.packages('httpuv')  
+- install.packages('xtable')  
+- library(sparklyr) # Load sparklyr before you install Spark  
+- spark_install(version = "1.6.2")  
+ 
+## Introduction to divide and recombine
+
+The **divide and recombine** or **D&R** method provides a highly scaleable approach to analysis of large complex data sets. With D&R we work with meaningful, persistent divisions of the data. "Big data" is typically big because it is made up of collections of many subsets, sensors, locations, time periods, etc. A schematic view of the D&R process is shown in the figure below.
+
+
+![alt text](drdiagram.png)
+
+There are many possible ways to divide data. The best choice depends on the nature of the data and the analysis to be performed. Some possibilities include: 
+
+- Break the data up based on data structure and apply visual or analytical methods 
+- We call this conditioning variable division
+- In practice this approach is common and not new
+- Another option is random replicate division
+
+Once the data are divided, analytic or visual methods are applied independently to each subset in an **embarrassingly parallel** fashion. The results of these analysis are **recombined** to yield a statistically valid D&R result or visualization. We refer to these options as: 
+
+- Analytic recombination
+- Graphical recombination
+
+In this lesson, our focus is on analytic graphical recombination for the exploration of large complex data sets. 
+
+## Download the data file  
+
+Before running the rest of this notebook you must download the data file. We recommend that you only download these data once and save them in the working directory you are planning to use. This will allow you to start and run the network more quickly. Follow these steps:  
+
+- Un-comment the code below  
+- Set the `data_path` variable to your working directory  
+- Run the code in this cell to download and save the data file. 
+- Comment this code before running the notebook again. 
+
+```{r}
+# data_path <- tempfile(fileext = ".csv.gz")
+# download.file
+#  "http://ml.stat.purdue.edu/hafen/strata2017/flights2008.csv.gz",
+#  data_path)
+```
+
+
+## Starting and Connecting to Spark Cluster  
+
+With the R packages and Spark installed, its time to start a Spark cluster and create a connection with `sparklyr`. In this case, you will start Spark on your local machine. For large scale applications, Spark is run on a remove cluster.  
+
+The connection object, called `sc in this case` is the connetion between your local R session and Spark. You will use references to the Spark connection whenever you send data and commands to Spark or receive results back.  
+
+```{R}
+library(nycflights13)
+library(tidyverse)
+library(forcats)
+library(sparklyr)
+library(trelliscopejs)
+
+sc <- spark_connect(master = "local")
+```
+
+Now that you have a Spark instance running, you can load the data from the .scv file in your local directory into Spark. If you are working with large scale data, you will need to use the more scalable data loading capabilities of Spark and will not load the data from a .csv file.  
+
+Notice, that the first argument of the command below is `sc`, a reference to the Spark connection you have started. The name assigned, `flights_tbl` is a reference you will use in R to access the data in Spark. Execute this code to load the data into your Spark session.  
+
+```{R}
+flights_tbl <- spark_read_csv(sc, "flights_csv", data_path)
+```
+
+
+## A D&D Example: Exploring Data Using dplyr 
+
+Now that the data has been loaded into Spark we can start our first **divide and recombine (D&R)** example. For this example, we will use the dplyr package with sparklyr. The R dplyr package, combined with sparklyr, is used to script complex data munging and analysis operations in Spark. If you are not familar with dplyr there is a good [tutorial vignette](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html) on CRAN.  
+
+The steps of this D&R example are:
+
+- The data are divided by the airline code using a `group_by` operation. In this case this procecss gives us 20 groups. 
+- The mean for each group is computed using the dplyr `summarize` verb. These calculations are independent of each other in all respects. They can be done in parallel even on different nodes of a cluster. Any other summary statistics can be computed in parallel as well.
+- The results are now just a mean value for each airline. They are easily recombined into a vector and then sorted using the `arrange` verb. 
+
+Ideally we would have liked to compute quartiles and the median but sparklyr doesn't support these calculations. Of course, you always have the option to do these caluclations with several primative steps. 
+
+The code below, applies a chain of dplyr **verbs** to the `flights_tbl` data frame. These operations are performed in Spark and transfered to your local R session using the `collect` verb. Execute this code and examine the result. 
+
+```{R}
+cr_arr_delay <- flights_tbl %>%
+  group_by(carrier) %>%
+  summarise(
+    mean_delay = mean(arr_delay),
+    mean_distance = mean(distance),
+    n = n()) %>%
+  arrange(mean_delay) %>%
+  collect()
+
+cr_arr_delay # Print the results
+```
+
+The D&R process has reduced about 2 million rows of raw data to just 20 rows of summary statistics. 
+
+
+## Creating a First Plot
+
+Now that you have the collected the summary statistics into your R session it is time to createt some plots to further explore the relationships in these results. 
+
+As a first step, we need to join some human readable names to the summary statistics data frame. Somem of these names are missing, so we will substitute the airline code in these cases. 
+
+```{R}
+# merge the airline info so we know who the carriers are
+cr_arr_delay <- left_join(cr_arr_delay, airlines)
+cr_arr_delay$name <- ifelse(is.na(cr_arr_delay$name), cr_arr_delay$carrier, cr_arr_delay$name)
+
+cr_arr_delay
+```
+
+Now that the data set is prepared, let's make some simple plots using the `ggplot2` package. The code in cell below uses ggplot to explore the mean delay by airline name and the number of flights by airline. 
+
+
+```{R}
+ggplot(cr_arr_delay, aes(fct_reorder(name, mean_delay), mean_delay)) +
+  geom_point() +
+#  geom_bar()
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab(NULL) + ylab("Mean Arrival Delay (minutes)")
+
+ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab(NULL) + ylab("Total Flights")
+
+```
+
+Now, the question is, what is the relationship between number of flights and mean delay, and mean delay and mean distance of the flights. The code in the cells below displays these plots.
+
+```{R}
+ggplot(cr_arr_delay, aes(mean_delay, n)) +
+  geom_point() +
+#  geom_bar()
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab('Mean delay in minutes') + ylab("Number of flights by airline")
+
+ggplot(cr_arr_delay, aes(mean_delay, mean_distance)) +
+  geom_point() +
+#  geom_bar()
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  xlab('Mean delay in minutes') + ylab("Mean distance in miles")
+```
+
+
+
+## Plotting  Complex Data 
+
+Let's try another D&R example. In this case we will divide the data both by airline and month. The basic D&R pipeline is similar to the one we used before, but the results are more granular. The code in the cell below performes the following devide and recombine operations:
+
+- The data is divided by each carrier and month pair.
+- Summary statistics are computed for each division of the data.
+- The recomnined results are collected to the local R session.
+- The airlines names are joined and the airline codes are substituted for the missing values. 
+
+
+```{R}
+cr_mn_arr_delay <- flights_tbl %>%
+  group_by(carrier, month) %>%
+  summarise(
+    mean_delay = mean(arr_delay),
+    mean_distance = mean(distance),
+    n = n()) %>%
+  collect() %>%
+  left_join(airlines)
+
+cr_mn_arr_delay$name <- ifelse(is.na(cr_mn_arr_delay$name), cr_mn_arr_delay$carrier, cr_mn_arr_delay$name)  
+
+head(cr_mn_arr_delay, 10)  
+```
+
+
+There are a lot of values here, so we need a way to visualize this complex result. In this case we will use a powerful mathod know as a **facet plot**, **conditioned plot**, or **trellis plot**. 
+
+A faceted or conditioned plot is comprised of a set of sub-plots defined by one or more conditioning variables. The data in each sub-plot are sub-setted based on the values of the conditioning variable. This conditioning operation is, in effect, a **group-by** opertion. This approach allows **small multiples** of a large complex data set to be viewed in a systematic and understandable manner.
+
+The idea of a facet plot has a long history. An early example of using small multiples was used to display some results from thee 1870 US census. The plot below combines small multiples with a treemap plot to show proportions of the population in ocupations or attending school, 
+
+![](Small_Multiples_1870.jpg)
+
+The small multiples idea was popularized in Edward Tufte's 1983 book. Bill Cleaveland and coleagues at AT&T Bell Labs created the Trellis Plot sofewware package based on the S lanuage. Cleaveland called this method trellis graphics.
+
+![](Cleaveland-Visualizing.jpg)
+
+The ggplot2 package contains the `facet_grid` function which is used to define the grid on which the sub-plots are created. The facet grid function uses an R formula object to define the rows and columns to specify the conditioning variable used to define the rows and columns. The general form of this formula is:
+
+$$RowVariables \sim ColumnVariables$$
+
+A conditioned plot with a single column, but multiple rows, is therefore defined:
+
+$$RowVariables \sim\ .$$
+
+Or, conditioned plot with a single row, but multiple columns, is defined:
+
+$$.\ \sim ColumnVariables$$
+
+You can use multiple variables to condition rows and columns, using the $+$ symbol as the operator:
+
+$$RowVar1 + RowVar2 + \ldots \sim ColVar1 + ColVar2 + \ldots$$
+
+Like all good things in visulation, there are practical limits. Creating a large grid of sub-plots using multiple conditioning variables quickly becomes confussing to look at. 
+
+The code in the cell below creates a faceted plot of monthly average flight delay by month. The each each of the plots is grouped-by or conditioned on first the name of the airline and then the mean flight delay.  
+
+
+```{r}
+ggplot(cr_mn_arr_delay, aes(month, mean_delay)) +
+  geom_point() + geom_line() +
+  facet_grid(~ fct_reorder(name, mean_delay))
+```
+
+There is one plot for each airline, with the mean delay shown by month. These plots have been sorted by the mean delay by airline, so we can focus on the airlines with the greatest average delays. There is significant changes in the mean dealys by month for each airline.
+
+Next, let's look at the relationship between the airines and the number of flights. The code below creates a display of the number of flights per month by airline sorted by mean flight delay. The number of flights in a given month is displayed on a log scale. 
+
+```{R}
+# look at number of flights
+ggplot(cr_mn_arr_delay, aes(month, n)) +
+  geom_point() + geom_line() +
+  scale_y_log10() +
+  facet_grid(~ fct_reorder(name, mean_delay))
+```
+
+Once againn, there is no clear pattern between the number of flights and the mean delays. Futher, for each airline there is only minimal changes in the number of flights by month.
+
+Lets look at the same lot on a linear scale. 
+
+```{R}
+ggplot(cr_mn_arr_delay, aes(month, n)) +
+  geom_point() + geom_line() +
+  facet_grid(~ fct_reorder(name, mean_delay))
+```
+
+The conclusions we can draw from this chart are the same as before. 
+
+To understand the month to month changes in mean flight delay for airlines we will plot these delays by month. To do so we need to filter the number of airlines to just the few with the largest number of flights. The code in the cell below does the  following:
+
+- Find the airline with the largest number of flights, and convert the airline codes to character.
+- The pipeline for plotting the monthly flight delays does the following: 
+  - The airlines are filtered for the ones with the large number of flights.
+  - A plot is created of the mean flight delay by month for the airlines with the largest numbers of flights. 
+
+```{R}
+top7 = cr_arr_delay %>% filter(n > 380000) %>% select(carrier)
+top7 = sapply(top7, as.character)
+top7 
+
+# overlay them all
+cr_mn_arr_delay %>%
+  filter(carrier %in% top7) %>%
+  ggplot(aes(month, mean_delay, color = name)) +
+  geom_point() + geom_line()
+```
+
+There is clearly a seasonal patern to the mean delays, which is similar for each airline. 
+
+Given this monthly pattern, it will be interesting to drill down into more detail. 
+questions:
+- Are different destinations more prone to delays?
+- does variability across airlines change for different destinations?
+
+let's look into these by grouping by dest, month, and name we'll look at mean delay for those airlines with enough observations. In this case we need to create a new grouping of the large data set using Sparlyr. The sparklyr pipeline in the cell below performs the following opertions:
+
+- Groups the data first by the flight origin, then by the flight destinatiion and finally by month.
+- The mean delay and number of flights on each route are computed. 
+- Results with fewer than 50 flights per month are filtered out.
+- The results are collected back into your local R session. 
+
+
+```{R}
+# group by, origin, dest, carrier, month and get mean delay and # obs
+# and pull this back into R
+route_summ = flights_tbl %>%
+  group_by(origin, dest, carrier, month) %>%
+  summarise(
+    mean_delay = mean(arr_delay),
+    n = n()) %>%
+  filter(n >= 50) %>%
+  collect()
+
+nrow(route_summ)
+```
+
+
+let's visualize this in more detail
+let's make a plot for each route (origin/dest combination)
+overlaying each airline's average delay across months of 2008
+let's just look at the top 7 airlines
+also, we want to add in the carrier name so let's join that too
+we want carrier to be a factor for our plots
+
+
+
+
+```{R}
+route_summ7 <- 
+  filter(route_summ, carrier %in% top7) %>%
+  left_join(airlines) %>%
+  rename(carrier_name = name) %>%
+  mutate(carrier_name = factor(carrier_name))
+
+# now let's nest the data by origin and dest (need to explain this...)
+by_route <- route_summ7 %>%
+  group_by(origin, dest) %>%
+  nest()
+  
+by_route
+
+```
+
+
+here are ~2.2k routes, the data for each is stored in the 'data' column
+
+some routes have data that is pretty sparse
+let's filter this to only include routes that have data for every month
+we can do this by looking in 'data' to count the unique number of months
+and add this as a new variable to filter on
+we might as well calculate the unique number of carriers while we're at it
+
+
+
+
+```{R}
+by_route <- by_route %>%
+  mutate(
+    n_months = map_int(data, ~ n_distinct(.$month)),
+    n_carriers = map_int(data, ~ n_distinct(.$carrier))
+    # miny = map_dbl(data, ~ min(.$mean_delay, na.rm = TRUE)),
+    # maxy = map_dbl(data, ~ max(.$mean_delay, na.rm = TRUE))
+  )
+
+by_route
+```
+
+
+
+```{R}
+by_route <- filter(by_route, n_months == 12) %>%
+  select(-n_months)
+
+by_route
+```
+
+
+```{R}
+# let's summarize just by month
+mn_arr_delay = flights_tbl %>%
+  group_by(month) %>%
+  summarise(mean_delay = mean(arr_delay)) %>%
+  arrange(month) %>%
+  collect()
+```
+
+
+
+```{R}
+# let's make a plot column for each route
+by_route <- by_route %>%
+  mutate(
+    plot = map_plot(data, function(x) {
+      ggplot(x, aes(month, mean_delay, color = carrier_name)) +
+        geom_line(aes(month, mean_delay), data = mn_arr_delay,
+                  color = "gray", size = 1) +
+        geom_point() + geom_line() +
+        ylim(c(-33.5, 96.25)) +
+        scale_color_discrete(drop = FALSE)
+    })
+  )
+
+by_route
+```
+
+
+
+
+
+```{R}
+trelliscope(by_route, name = "test", nrow = 2, ncol = 4, self_contained = TRUE)
+
+#browseURL(paste0(attr(p, "trelliscope_pars")$www_dir, "/index.html"))
+```
+
