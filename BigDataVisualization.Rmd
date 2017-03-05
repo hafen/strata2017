@@ -88,7 +88,16 @@ flights_tbl <- spark_read_csv(sc, "flights_csv", data_path)
 
 ## A D&D Example: Exploring Data Using dplyr 
 
-Now that the data has been loaded into Spark we can start our first **divide and recombine (D&R)** example. For this example, we will use the dplyr package with sparklyr. The R dplyr package, combined with sparklyr, is used to script complex data munging and analysis operations in Spark. If you are not familar with dplyr there is a good [tutorial vignette](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html) on CRAN.  
+Now that the data has been loaded into Spark we can start our first **divide and recombine (D&R)** example. For this example, we will use the dplyr package with sparklyr. The R dplyr package, combined with sparklyr, is used to script complex data munging and analysis operations in Spark. 
+
+- Dplyr performs common data manipulation or data munging operations using a series of operators call `verrbs`. 
+  - Complex data munging operations are constructed by **chaining** the simple verbs. The output of one verb is connected to the input of the next using the **chaining operator**, `%>%`
+  - If you are not familar with dplyr there is a good [tutorial vignette](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html) on CRAN.  
+- Sparklyr uses a subset of the dplyr verbs to script operation in Spark. 
+  - Verb chains are defined in R.
+  - The pipeline defined by the verb chain is exectued in Spark.
+  - Results are uploaded to the local R session using the `collect` verb.
+  - There are comprehensive [tutorials an documentation](http://spark.rstudio.com/) for sparklyr.
 
 The steps of this D&R example are:
 
@@ -98,7 +107,8 @@ The steps of this D&R example are:
 
 Ideally we would have liked to compute quartiles and the median but sparklyr doesn't support these calculations. Of course, you always have the option to do these caluclations with several primative steps. 
 
-The code below, applies a chain of dplyr **verbs** to the `flights_tbl` data frame. These operations are performed in Spark and transfered to your local R session using the `collect` verb. Execute this code and examine the result. 
+
+The code below, applies a chain of dplyr **verbs** to the `flights_tbl` data frame. These operations are performed in Spark and transfered to your local R session using the `collect` verb. Execute this code and examine the result.  
 
 ```{R}
 cr_arr_delay <- flights_tbl %>%
@@ -114,7 +124,6 @@ cr_arr_delay # Print the results
 ```
 
 The D&R process has reduced about 2 million rows of raw data to just 20 rows of summary statistics. 
-
 
 ## Creating a First Plot
 
@@ -146,6 +155,18 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
   xlab(NULL) + ylab("Total Flights")
 
 ```
+
+
+***
+**Note:** In this tutorial we assume you have some exposurer to the ggplot2 package. 
+
+- The`ggplot`function defines a data frame to operate on.
+- The `aes` function defines the columns to use for the various dimensions of the plot, e.g. x, ycolor, shape. 
+- The plot type attribute is defined by one or more geometry functions, e.g. geom_point, geom_line, geom_boxplot.
+- Other plot attributes are defined by the apprpriate function, e.g. xlab, ggtitle, theme. 
+- All of the functions required to create a complete plot are **chained** together with the **chaining** operator, `+`.
+***
+
 
 Now, the question is, what is the relationship between number of flights and mean delay, and mean delay and mean distance of the flights. The code in the cells below displays these plots.
 
@@ -189,7 +210,6 @@ cr_mn_arr_delay$name <- ifelse(is.na(cr_mn_arr_delay$name), cr_mn_arr_delay$carr
 
 head(cr_mn_arr_delay, 10)  
 ```
-
 
 There are a lot of values here, so we need a way to visualize this complex result. In this case we will use a powerful mathod know as a **facet plot**, **conditioned plot**, or **trellis plot**. 
 
