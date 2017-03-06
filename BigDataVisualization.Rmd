@@ -38,7 +38,7 @@ In this tutorial we will explore methods for exploration and  visualization of l
 The **divide and recombine** or **D&R** method provides a highly scaleable approach to analysis of large complex data sets. With D&R we work with meaningful, persistent divisions of the data. "Big data" is typically big because it is made up of collections of many subsets, sensors, locations, time periods, etc. A schematic view of the D&R process is shown in the figure below.
 
 
-![alt text](drdiagram.png)
+![](drdiagram.png)
 
 There are many possible ways to divide data. The best choice depends on the nature of the data and the analysis to be performed. Some possibilities include: 
 
@@ -193,7 +193,7 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
 - The `aes` function defines the columns to use for the various dimensions of the plot, e.g. x, ycolor, shape. 
 - The plot type attribute is defined by one or more geometry functions, e.g. geom_point, geom_line, geom_boxplot.
 - Other plot attributes are defined by the apprpriate function, e.g. xlab, ggtitle, theme. 
-- All of the functions required to create a complete plot are **chained** together with the **chaining** operator, `+`.
+- All of the functions required to create a complete plot are **chained** together with the **chaining** operator, `+`.   
 ***
 
 
