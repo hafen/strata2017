@@ -13,7 +13,7 @@ before you can run the code in this notebook you should follow the directions fr
 In this tutorial we will explore methods for exploration and  visualization of large complex data set using R and Spark. We will cover the following topics:
 
 
-- Developing skills for exploring data in an iterative fashion. Since it is imposible to predict which views and summaries of a new data set are the most interesting, an iterative process is required. 
+- Developing skills for exploring data in an iterative fashion. Since it is imposible to predict which views and summaries of a new data set are the most interesting, an iterative process is required. Therefore, it is improtant to create and understand multiple views of your data set. 
 - Using the  divide and recombine method on massive complex data set to compute summary statistics or prepare for visualization.
 - Working with Spark as a scalable back-end for divide and recombine.
 - Plotting complex data, espcially using the the  method of small fractions or conditining. 
@@ -176,16 +176,16 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, mean_delay), mean_delay)) +
 ***
 
 ***
-**Your Turn:** We have looked at some relationship for the mean delay of flights by airline. But how does the mean distance of the flight change by airline. In the space below create and exectue code to do the following:
+**Your Turn:** We have looked at some relationship for the mean delay of flights by airline. But how does the **mean distance** of the flight change by airline. In the space below create and exectue code to do the following:
 - Use sparklyr to compute a new `cr_arr_delay` data frame, including a `mean_distance` column.
 - Join the airline names to the `cr_arr_delay` data frame.
-- Use ggplot2 to 
+- Use ggplot2 to plot the mean distance by airline.
 ```{R}
 cat('Your code goes here')
 ```
 ***
 
-Now, the question is, what is the relationship between number of flights and mean delay, and mean delay and mean distance of the flights. The code in the cells below displays these plots.
+As discussed before, it is important to investigate multiple views of a data set. Now, the question is, what is the relationship between number of flights and mean delay, and mean delay and mean distance of the flights. The code in the cells below displays these plots.
 
 ```{R}
 ggplot(cr_arr_delay, aes(mean_delay, n)) +
@@ -203,7 +203,9 @@ ggplot(cr_arr_delay, aes(mean_delay, mean_distance)) +
 
 
 
-## Plotting  Complex Data 
+## Plotting Complex Data 
+
+In the pervious example we worked with a fairly simple set of summary statistics. The mean delay, number of flights and mean distance of flights all grouped by a single factor, airline. These relationships give us some interesting insight into these data, but surely, we can learn more about this data set. 
 
 Let's try another D&R example. In this case we will divide the data both by airline and month. The basic D&R pipeline is similar to the one we used before, but the results are more granular. The code in the cell below performes the following devide and recombine operations:
 
@@ -228,15 +230,17 @@ cr_mn_arr_delay$name <- ifelse(is.na(cr_mn_arr_delay$name), cr_mn_arr_delay$carr
 head(cr_mn_arr_delay, 10)  
 ```
 
-There are a lot of values here, so we need a way to visualize this complex result. In this case we will use a powerful mathod know as a **facet plot**, **conditioned plot**, or **trellis plot**. 
+There are a fair number of variables here, so we need a way to visualize this complex result. In this case we will use a powerful mathod know variously as a **facet plot**, **conditioned plot**, **trellis plot**, or the **method of small multiples**. 
 
-A faceted or conditioned plot is comprised of a set of sub-plots defined by one or more conditioning variables. The data in each sub-plot are sub-setted based on the values of the conditioning variable. This conditioning operation is, in effect, a **group-by** opertion. This approach allows **small multiples** of a large complex data set to be viewed in a systematic and understandable manner.
+A faceted or conditioned plot is comprised of a set of sub-plots defined by one or more conditioning variables. The data in each sub-plot are sub-setted based on the values of the conditioning variable. This conditioning operation is, in effect, a **group-by** opertion. This approach allows **small multiples** of a large complex data set to be viewed in a systematic and understandable manner. 
 
-The idea of a facet plot has a long history. An early example of using small multiples was used to display some results from thee 1870 US census. The plot below combines small multiples with a treemap plot to show proportions of the population in ocupations or attending school, 
+In effect, the method extends the number of dimensions we can project onto our 2d computer display. This property mackes conditioned plotting an idea tool for complex data sets. 
+
+The idea of a facet plot has a long history. An early example of using small multiples was used to display some results from the 1870 US census. The plot below combines small multiples with a treemap plot to show proportions of the population in different ocupations or attending school, 
 
 ![](Small_Multiples_1870.jpg)
 
-The small multiples idea was popularized in Edward Tufte's 1983 book. Bill Cleaveland and coleagues at AT&T Bell Labs created the Trellis Plot sofewware package based on the S lanuage. Cleaveland called this method trellis graphics.
+The small multiples idea was popularized in Edward Tufte's 1983 book. Bill Cleaveland and coleagues at AT&T Bell Labs created the Trellis Plot sofeware package using the S lanuage. Cleaveland called this method trellis graphics.
 
 ![](Cleaveland-Visualizing.jpg)
 
@@ -256,9 +260,9 @@ You can use multiple variables to condition rows and columns, using the $+$ symb
 
 $$RowVar1 + RowVar2 + \ldots \sim ColVar1 + ColVar2 + \ldots$$
 
-Like all good things in visulation, there are practical limits. Creating a large grid of sub-plots using multiple conditioning variables quickly becomes confussing to look at. 
+Like all good things in visulation, there are practical limits. Creating a large grid of sub-plots using multiple conditioning variables quickly becomes confussing to look at and understand. Best practice is to use one or two conditioning variables to star with and then to explore the data set by changing one conditioning variable at a time. 
 
-The code in the cell below creates a faceted plot of monthly average flight delay by month. The each each of the plots is grouped-by or conditioned on first the name of the airline and then the mean flight delay.  
+The code in the cell below creates a faceted plot of monthly average flight delay by month. The data in these plots is grouped-by or conditioned on first the name of the airline and then the mean flight delay.  
 
 
 ```{r}
@@ -267,33 +271,24 @@ ggplot(cr_mn_arr_delay, aes(month, mean_delay)) +
   facet_grid(~ fct_reorder(name, mean_delay))
 ```
 
-There is one plot for each airline, with the mean delay shown by month. These plots have been sorted by the mean delay by airline, so we can focus on the airlines with the greatest average delays. There is significant changes in the mean dealys by month for each airline.
+There is one plot for each airline, with the mean delay shown by month. These plots have been sorted by the mean delay by airline, so we can focus on the airlines with the greatest average delays. Notice that thhere are significant changes in the mean dealys by month for each airline.
 
-Next, let's look at the relationship between the airines and the number of flights. The code below creates a display of the number of flights per month by airline sorted by mean flight delay. The number of flights in a given month is displayed on a log scale. 
-
-```{R}
-# look at number of flights
-ggplot(cr_mn_arr_delay, aes(month, n)) +
-  geom_point() + geom_line() +
-  scale_y_log10() +
-  facet_grid(~ fct_reorder(name, mean_delay))
-```
-
-Once againn, there is no clear pattern between the number of flights and the mean delays. Futher, for each airline there is only minimal changes in the number of flights by month.
-
-Lets look at the same lot on a linear scale. 
+***
+**Your Turn:** Next, let's look at the relationship between the airines and the number of flights. In the cell below create and execute the code to display the number of flights per month by airline sorted by mean flight delay. Create two plots, one on a log scale and one on a linear scale. Is this relationship useful in understanding this data set? **Hint**, the ggolot2 attribute function `scale_y_log10()` will create a plot with a log scale on the vertical axis. 
 
 ```{R}
-ggplot(cr_mn_arr_delay, aes(month, n)) +
-  geom_point() + geom_line() +
-  facet_grid(~ fct_reorder(name, mean_delay))
+cat('Your code goes here')
 ```
 
-The conclusions we can draw from this chart are the same as before. 
+***
+
+ 
 
 ## Filtering Results to Improve Understanding
 
-To understand the month to month changes in mean flight delay for airlines we will plot these delays by month. To do so we need to filter the number of airlines to just the few with the largest number of flights. The code in the cell below does the  following:
+When working to understand a large complex data set it is often necessary to filter results to reduce complexity and enhance understanding. 
+
+To understand the month to month changes in mean flight delay for airlines we will plot these delays by month. Without filtering there will be too many lines on our plot, inhibiting understanding. To do so we need to filter the number of airlines to just the few with the largest number of flights. The code in the cell below does the  following:
 
 - Find the airline with the largest number of flights, and convert the airline codes to character.
 - The pipeline for plotting the monthly flight delays does the following: 
@@ -321,7 +316,9 @@ questions:
 - Are different destinations more prone to delays?
 - does variability across airlines change for different destinations?
 
-let's look into these by grouping by dest, month, and name we'll look at mean delay for those airlines with enough observations. In this case we need to create a new grouping of the large data set using Sparlyr. The sparklyr pipeline in the cell below performs the following opertions:
+let's look into these by grouping by dest, month, and name we'll look at mean delay for those airlines with enough observations. I
+
+We need to create a new grouping of the large data set using Sparlyr. The dplyr code in the cell below defines a sparklyr pipeline performing the following opertions:
 
 - Groups the data first by the flight origin, then by the flight destinatiion and finally by month.
 - The mean delay and number of flights on each route are computed. 
@@ -343,7 +340,7 @@ route_summ = flights_tbl %>%
 nrow(route_summ)
 ```
 
-We have gone from over 2 million rows to about 50 thousand rows, a reduction in side of about a factor of about 40. With some further filtering, we can reduce this  event further. This type of reduction in data size is essential when applying the D&R paradigm to large complex data sets. 
+We have gone from over 2 million rows to about 50 thousand rows, a reduction in size by a factor of about 40. With some further filtering, we can reduce this  even further. This type of reduction in data size is essential when applying the D&R paradigm to large complex data sets. 
 
 Let's do some  additional filtering to prepare these data for visualization. Our goal is to reduce the size of the data set an filter for the carriers with the with the most flights. 
 
