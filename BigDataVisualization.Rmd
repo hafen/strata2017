@@ -6,31 +6,16 @@ output: html_notebook
 
 ## Instalation directions. 
 
-Before installing the R packages insure the Java JDK is installed. You can download and install thj JDK from [here](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html)  
+before you can run the code in this notebook you should follow the directions from the [README](https://github.com/hafen/strata2017).
 
-Before you start you must have installed the following R packages shown in the list below. We recommend that you follow the order shown here:  
-  
-- install.packages("devtools")  
-- install.packages("tidyverse")    
-- install.packages("nycflights13")  
--  install.packages("sparklyr") # Use version 0.5.1  
-- install.packages("digest")  
-- install.packages('scales')  
-- install.packages('prettyunits')  
-- devtools::install_github("hafen/trelliscopejs")  
-- install.packages('httpuv')  
-- install.packages('xtable')  
-- library(sparklyr) # Load sparklyr before you install Spark  
-- spark_install(version = "1.6.2")  
- 
 ## Overview
 
 In this tutorial we will explore methods for exploration and  visualization of large complex data set using R and Spark. We will cover the following topics:
 
 
-- Developing skills for exploring data in an iterative fashion. Since it is imposible to predict which views and summary of the data are the most interesting, an iterative process is required. 
+- Developing skills for exploring data in an iterative fashion. Since it is imposible to predict which views and summaries of a new data set are the most interesting, an iterative process is required. 
 - Using the  divide and recombine method on massive complex data set to compute summary statistics or prepare for visualization.
-- Working Spark as a scalable back-end for divide and recombine.
+- Working with Spark as a scalable back-end for divide and recombine.
 - Plotting complex data, espcially using the the  method of small fractions or conditining. 
 
 ## Introduction to divide and recombine
@@ -50,7 +35,7 @@ There are many possible ways to divide data. The best choice depends on the natu
 Once the data are divided, analytic or visual methods are applied independently to each subset in an **embarrassingly parallel** fashion. The results of these analysis are **recombined** to yield a statistically valid D&R result or visualization. We refer to these options as: 
 
 - Analytic recombination
-- Summary and aggregation recombination
+- Summary or aggregation recombination
 - Graphical recombination
 
 In this lesson, our focus is on summary and graphical recombination for the exploration of large complex data sets. 
@@ -68,7 +53,7 @@ Before running the rest of this notebook you must download the data file. We rec
 # Read this with Spark?????
 ```
 
-## Large Data with R and Spark
+## Big Data with R and Spark
 
 This tutorial focuses on the exploration and visualization of large complex data sets using the D&R paradigm. To do so, we need a massively scalable back-end to perform the large scale data operations. In this case we are using a Spark back-end. The architecture our environment is shown schematically in the figure below. 
 
@@ -86,9 +71,9 @@ The components of the architecture are:
 
 ### Starting and Connecting to Spark Cluster  
 
-With the R packages and Spark installed, its time to start a Spark cluster and create a connection with `sparklyr`. In this case, you will start Spark on your local machine. For large scale applications, Spark is run on a remove cluster.  
+Its time to start a Spark cluster and create a connection with `sparklyr`. In this case, you will start Spark on your local machine. For large scale applications, Spark is run on a remote cluster.  
 
-The connection object, called `sc in this case` is the connetion between your local R session and Spark. You will use references to the Spark connection whenever you send data and commands to Spark or receive results back.  
+The connection object, called `sc` in this case, is the connetion between your local R session and Spark. You will use references to the Spark connection whenever you send data and commands to Spark or receive results back.  
 
 ```{R}
 library(nycflights13)
@@ -105,7 +90,7 @@ sc <- spark_connect(master = "local")
 
 Now that you have a Spark instance running, you can load the data from the .csv file in your local directory into Spark. If you are working with large scale data, you will need to use the more scalable data loading capabilities of Spark and will not load the data from a .csv file. 
 
-In no case can you load your large data set into your local R session. The point of the D&R paradigm is to use a massively scalable back end for the heavy lifting. Only the recombined results are collected into the local R session. In this case, we are using Spark for our backend. Other choices, such as Hadoop, would be suitable as well. 
+You **do not load your large data set into your local R session.** The point of the D&R paradigm is to **use a massively scalable back end** for the heavy lifting. Only the **recombined results are collected into the local R session**. In this case, we are using Spark for our backend. Other choices, such as Hadoop, would be suitable as well. 
 
 Notice, that the first argument of the command below is `sc`, a reference to the Spark connection you have started. The name assigned, `flights_tbl` is a reference you will use in R to access the data in Spark. Execute this code to load the data into your Spark session.  
 
@@ -118,9 +103,9 @@ flights_tbl <- spark_read_csv(sc, "flights_csv", data_path)
 
 Now that the data has been loaded into Spark we can start our first **divide and recombine (D&R)** example. The steps of this D&R example are:
 
-- The data are divided by the airline code using a `group_by` operation. In this case this procecss gives us 20 groups. 
+- The data are divided by the airline code using a `group_by` operation. In this case, we will create 20 groups. 
 - The mean for each group is computed using the dplyr `summarize` verb. These calculations are independent of each other in all respects. They can be done in parallel even on different nodes of a cluster. Any other summary statistics can be computed in parallel as well.
-- The results are now just a mean value for each airline. They are easily recombined into a vector and then sorted using the `arrange` verb. 
+- The results are now just one mean value for each airline. They are easily recombined into a vector and then sorted using the `arrange` verb. 
 
 Ideally we would have liked to compute quartiles and the median but sparklyr doesn't support these calculations. Of course, you always have the option to do these caluclations with several primative steps. 
 
@@ -132,7 +117,6 @@ cr_arr_delay <- flights_tbl %>%
   group_by(carrier) %>%
   summarise(
     mean_delay = mean(arr_delay),
-    mean_distance = mean(distance),
     n = n()) %>%
   arrange(mean_delay) %>%
   collect()
@@ -144,7 +128,7 @@ The D&R process has reduced about 2 million rows of raw data to just 20 rows of 
 
 For this example, we used the dplyr package with sparklyr. The R dplyr package, combined with sparklyr, is used to script complex data munging and analysis operations in Spark. 
 
-- Dplyr performs common data manipulation or data munging operations using a series of operators call `verrbs`. 
+- Dplyr performs common data manipulation or data munging operations using a series of operators call `verbs`. 
   - Complex data munging operations are constructed by **chaining** the simple verbs. The output of one verb is connected to the input of the next using the **chaining operator**, `%>%`
   - If you are not familar with dplyr there is a good [tutorial vignette](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html) on CRAN.  
 - Sparklyr uses a subset of the dplyr verbs to script operation in Spark. 
@@ -177,12 +161,6 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, mean_delay), mean_delay)) +
 #  geom_bar()
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   xlab(NULL) + ylab("Mean Arrival Delay (minutes)")
-
-ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
-  geom_point() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  xlab(NULL) + ylab("Total Flights")
-
 ```
 
 
@@ -193,9 +171,19 @@ ggplot(cr_arr_delay, aes(fct_reorder(name, n), n)) +
 - The `aes` function defines the columns to use for the various dimensions of the plot, e.g. x, ycolor, shape. 
 - The plot type attribute is defined by one or more geometry functions, e.g. geom_point, geom_line, geom_boxplot.
 - Other plot attributes are defined by the apprpriate function, e.g. xlab, ggtitle, theme. 
-- All of the functions required to create a complete plot are **chained** together with the **chaining** operator, `+`.   
+- All of the functions required to create a complete plot are **chained** together with the **chaining** operator, `+`.  
+- There is a [comprehensive ggplot2 documentation index](http://docs.ggplot2.org/current/) for all functions available. 
 ***
 
+***
+**Your Turn:** We have looked at some relationship for the mean delay of flights by airline. But how does the mean distance of the flight change by airline. In the space below create and exectue code to do the following:
+- Use sparklyr to compute a new `cr_arr_delay` data frame, including a `mean_distance` column.
+- Join the airline names to the `cr_arr_delay` data frame.
+- Use ggplot2 to 
+```{R}
+cat('Your code goes here')
+```
+***
 
 Now, the question is, what is the relationship between number of flights and mean delay, and mean delay and mean distance of the flights. The code in the cells below displays these plots.
 
