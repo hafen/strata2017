@@ -10,7 +10,7 @@ Before you can run the code in this notebook you should follow the directions fr
 
 ## Overview
 
-In this tutorial we will explore methods for exploration and visualization of large complex data seta using R and Spark. We will cover the following topics:
+In this tutorial we will explore methods for exploration and visualization of large complex data sets using R and Spark. We will cover the following topics:
 
 - Developing skills for exploring data in an iterative fashion. Since it is impossible to predict which views and summaries of a new data set are the most interesting, an iterative process is required. Therefore, it is important to create and understand multiple views of your data.
 - Using the divide and recombine methodology on data to compute summary statistics or prepare for visualization.
