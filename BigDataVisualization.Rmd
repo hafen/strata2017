@@ -26,7 +26,7 @@ The **divide and recombine** or **D&R** method provides a highly scalable approa
 
 ![](images/drdiagram.png)
 
-There are many possible ways to divide data. The best choice depends on the nature of the data and the analysis to be performed. Some possibilities include: 
+There are many possible ways to **divide data**. The best choice depends on the nature of the data and the analysis to be performed. Some possibilities include: 
 
 - Break the data up based on data structure and apply visual or analytical methods 
 - We call this conditioning variable division
@@ -62,7 +62,7 @@ TODO (Ryan): notes and diagram comparing datadr and sparklyr/dplyr within D&R co
 
 Its time to start a Spark cluster and create a connection with `sparklyr`. In this case, you will start Spark on your local machine. Spark should be installed on your system already from following the [installation instructions](https://github.com/hafen/strata2017). For large scale applications, Spark is run on a remote cluster.
 
-The connection object, called `sc` in this case, is the connection between your local R session and Spark. You will use references to the Spark connection whenever you send data and commands to Spark or receive results back.
+The connection object, called `sc` in this case, manages the connection between your local R session and Spark. You will use references to the Spark connection whenever you send data and commands to Spark or receive results back.
 
 ```{r}
 library(tidyverse)
@@ -70,7 +70,7 @@ library(sparklyr)
 library(trelliscopejs)
 library(forcats)
 
-airlines <- readr::read_csv("data/airlines.csv")
+airlines <- readr::read_csv(file.path('data', 'flights2016.csv.gz'))
 
 sc <- spark_connect(master = "local")
 ```
@@ -95,7 +95,7 @@ To check that the data was read properly, we can print the object. This pulls a 
 flights_tbl
 ```
 
-This gives us a feel for what variables are in the data and how many records there are.
+This gives us a feel for what variables are in the data and how many records there are. Notice also, that we have about 5.6 million rows of data. 
 
 ## A D&R Example: Exploring Data Using dplyr 
 
@@ -147,6 +147,7 @@ As a first step, we need to join some human readable names to the summary statis
 cr_arr_delay <- left_join(cr_arr_delay, airlines)
 
 cr_arr_delay
+
 ```
 
 Now that the data set is prepared, let's make some simple plots using the `ggplot2` package. The code in cell below uses ggplot to explore the mean delay by airline name and the number of flights by airline. 
@@ -308,7 +309,7 @@ There appears to be a seasonal pattern to the mean delays for all of the top 6 c
 ***
 **Your Turn:** Let's make the same plot for the bottom six airlines. Or better yet, can you modify the code for the above plot to created a the plot faceted by whether the airline is in the top 6 or bottom 6? Is there a difference in seasonal patterns or in general between airlines in the top 6 or bottom 6?
 
-```{t}
+```{r}
 cat('Your code goes here')
 ```
 
