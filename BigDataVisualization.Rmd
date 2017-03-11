@@ -56,7 +56,32 @@ The components of the architecture are:
 - sparklyr provides session management and transform orchestration for Spark. 
 - A local R session runing sparklyr and any other required packages controls the environment. sparklyr translates the data munging pipeline defined in R into a transformation pipeline in Spark. 
 
-TODO (Ryan): notes and diagram comparing datadr and sparklyr/dplyr within D&R context.
+## Other D&R Architectures ##
+
+It is useful to discuss some of the limitations of this architecture with respect to the D&R paradigm and compare it to other D&R software available to understand which architecture is appropriate for different situations and to discuss what we envision as the future of an ideal D&R architecture.
+
+The D&R project originated as an R front-end to Hadoop, called RHIPE, the R and Hadoop Integrated Programming Environment. This R package allows you to write MapReduce code entirely in R and run it against datasets on Hadoop. MapReduce is not always the most straightforward way to think about processing data, so a companion package, "datadr" was created as a front end for specifying D&R tasks that are translated into MapReduce code. A [tutorial on this]() was given last year at Strata Hadoop World and more about these packages can be found at [deltarho.org](http://deltarho.org).
+
+### Advantages of RHIPE + datadr
+
+- With datadr and RHIPE, you can execute arbitrary R code against arbitrary R objects at scale on a Hadoop cluster - a flexibility that is absolutely critical in almost any real-world analysis, and one that truly leverages the immense library of analytical methods available in R. With dplyr and sparklyr, you are constrained to the set of operations that can be translated into SQL and you are always dealing with tabular data.
+- Divisions of data are **persistent**. It takes a lot of effort to shuffle large amounts of data around, and usually if you have a useful division in mind, it's something you want to create once and re-use many times. Also, after you've created a division, you often want to transform it to something that isn't tabular anymore. You can do this naturally with datadr and subsequent per-group operations are very natural and fast. With sparklyr, "virtual" divisions are attained using the `group_by` verb and must be specified for every operation, and your data is always tabular throughout the process.
+
+### Advantages of sparklyr + dplyr
+
+- Based on a very popular, ubiquitous, and expressive interface, dplyr
+- Great development community support (RStudio)
+- Momentum
+
+### The Future of D&R Architectures
+
+While there are some critical big data needs that datadr/RHIPE/Hadoop addresses, given the momentum of both Spark and the [Tidyverse](http://tidyverse.org/), which includes dplyr, and the emergence of using [list-columns](http://r4ds.had.co.nz/many-models.html#list-columns-1) in data frames to handle arbitrary data, we envision a future D&R environment based on these technologies that can give us arbitrary R execution and arbitrary data structures at scale.
+
+In this tutorial, we use sparklyr and are limited to using it to summarize a larger data set for the purpose of creating visualizations, which does get us pretty far.
+
+## Getting Started
+
+Let's now move on to some hands-on examples.
 
 ### Starting and Connecting to Spark Cluster  
 
@@ -357,8 +382,6 @@ With a little more work, we can get this data more suitable for visualization.
 - The airline names are joined.
 - The airline names and months are converted to a factor variable which is helpful for making plots with ggplot2.
 
-TODO: merge in airport name and compute per-group min and max mean delay
-
 ```{r}
 route_summ2 <- route_summ %>%
   left_join(airlines) %>%
@@ -447,7 +470,7 @@ Now, after all this munging, we are finally ready to create a Trelliscope displa
 
 ```{r}
 filter(route_summ3, origin == "ATL") %>%
-    ggplot(aes(month, mean_delay, color = carrier_name, group = carrier_name)) +
+  ggplot(aes(month, mean_delay, color = carrier_name, group = carrier_name)) +
     geom_line(aes(month, mean_delay), data = mn_arr_delay, color = "gray", size = 1, group = 1) +
     geom_point() +
     geom_line() +
@@ -459,13 +482,22 @@ filter(route_summ3, origin == "ATL") %>%
 If the above code snippet doesn't open up a web browser with the resulting plot, you can view it in your web browser wtih the following command:
 
 ```{r}
-browseURL("route_delay/index.html")
+browseURL("route_delay_atl/index.html")
 ```
 
-TODO: Discuss how to navigate the display via cognostics...
-- Sort from lowest->highest or highets->lowest mean delay - any interesting results?
-- Filter based on origin (choose your favorite origin airport code)
-- Just page through and look at a lot of plots - are there interesting deviations from the overall mean?
+When the display opens, you should see something like this:
+
+![](images/trelliscope.png)
+
+This is an interactive faceted display that opens in your web browser. There are 140 routes out of Atlanta that fit our criteria. 140 panels is too many to display at once, which is why the display is showing the first 8, by default ordered alphabetically by our grouping variables, origin and destination airport code.
+
+Here are some simple interactions you can do with the Trelliscope display:
+
+- Use the "Prev" and "Next" buttons, or your left and right arrow keys, to page through the panels of the display. This simple quick navigation helps you scan and find patterns that stick out.
+- Click the "Grid" button on the sidebar and change the number of rows and columns that are being displayed per page.
+- Click the "Sort" button on the sidebar to change the variables to order the panels according to. You can click the "x" icon next to the existing sort variables ("origin" and "dest") to remove the sorting on that variable, and then choose a new variable from the list to sort on. The blue icon next the variable name allows you to toggle the order from increasing to decreasing. You will notice some unfamiliar variables in this list, such as `mean_delay_mean`. Trelliscope inspects the data that you pass in to your ggplot command and automatically computes per-subset metrics that it thinks might be interesting for you to navigate the panels with. One of the variables in our input data, `route_summ3`, is `mean_delay`. Trelliscope took this variable and computed the average mean delay for each observation in each route and made it available as a metric to sort and filter on, `mean_delay_mean`. We call these metrics *cognostics*. You can sort on the `mean_delay_mean` cognostic to see what the most consistently early and late routes and airlines are.
+- Click the "Filter" button on the sidebar to filter the panels to be displayed. A list of cognostic variables is shown and you can select one to filter on. For example , if you select `mean_delay_mean`, an interactive histogram showing the distribution of this variable appears and you can select panels that, for example, have a negative mean delay.
+- Click the "Labels" button on the sidebar to control which labels are displayed underneath each panel.
 
 ***
 **Your Turn:** Investigate the Trelliscope display and try to answer the following questions:
@@ -475,9 +507,85 @@ TODO: Discuss how to navigate the display via cognostics...
 - What other ways might you think of dividing or visualizing this data that might be interesting?
 ***
 
-We can plot all ~2700 routes in a single display if we want (note that thanks to ggplot2 being reaalllly slow, this will take a very long time). We are working on ways to generate a Trelliscope display instantaneously and render the individual panels in the fly rather than prerendering all of them.
+### Adding Cognostics to Displays
 
-TODO: note about how in the future, everything - including generating Trelliscope displays - will be possible to do on the cluster.
+In our previous display, we didn't have too many variables to filter or sort our panels by, so we may want to add more to our display.
+
+One piece of data we can use to augment our display is metadata about the airports. The `nycflights13` R package contains such a data set.
+
+```{r}
+nycflights13::airports
+```
+
+
+Since we only are looking at a single origin airport, let's add airport metadata for our destinations. Let's select a few variables from this data set and rename the variables to be more meaningful for being applied to destination airports.
+
+```{r}
+dest_airports <- nycflights13::airports %>%
+  rename(dest = faa, airport_name = name, dest_lat = lat, dest_lon = lon, dest_alt = alt,
+    dest_tzone = tzone) %>%
+  select(-c(tz, dst))
+
+dest_airports
+```
+
+The variable that matches this data to our `route_summ3` data is `dest`, so we can simply join on that to get a new dataset:
+
+```{r}
+route_summ4 <- left_join(route_summ3, dest_airports)
+route_summ4
+```
+
+Suppose we also want to be able to sort routes according to the absolute earliest and latest arrival across all airlines and months. To do this, we can add new summary columns to our data:
+
+```{r}
+route_summ4 <- route_summ4 %>%
+  group_by(origin, dest) %>%
+  mutate(min_delay = min(mean_delay), max_delay = max(mean_delay))
+route_summ4
+```
+
+Now that we have more variables in our data, let's recreate our Trelliscope display. The only thing we change here is the input dataset, and we place the resulting display in a different directory than our previous one.
+
+```{r}
+filter(route_summ4, origin == "ATL") %>%
+  ggplot(aes(month, mean_delay, color = carrier_name, group = carrier_name)) +
+    geom_line(aes(month, mean_delay), data = mn_arr_delay, color = "gray", size = 1, group = 1) +
+    geom_point() +
+    geom_line() +
+    ylim(c(-31, 47)) +
+    scale_color_discrete(drop = FALSE) +
+    facet_trelliscope(~ origin + dest, nrow = 2, ncol = 4, path = "route_delay_atl2")
+```
+
+Again, if this display didn't display in your browser as a result of running the previous cell, run the following:
+
+```{r}
+browseURL("route_delay_atl2/index.html")
+```
+
+Now we can see if these new cognostics provide us any more meaningful ways to navigate or understand our data.
+
+***
+**Your Turn:** Investigate the Trelliscope display and try to answer the following questions:
+- Can you turn on the `airport_name` label to give you a helpful hint as to where or what the destination airport code is referring to?
+- What is the most common destination time zone for flights out of Atlanta? (hint: turn on the `dest_tzone` filter and look at its distribution)
+- What are the worst destination time zones in terms of more delayed flights? (hint: in addition to turning on the `dest_tzone` filter, turn on the `mean_delay_mean` filter and then examine how the distribution of this filter changes as you make different selections of the `dest_tzone` filter)
+- Which route has the worst delay time? (hint: sort on `min_delay`)
+***
+
+### Larger Trelliscope Displays
+
+It is worth noting that although we are only looking at 140 plots in the above Trellscope displays, the notion of Trelliscope display conceptually scales to displays of a very large number of panels. We have made displays with panels numbering in the millions. Even though you may have a million subsets of data available to look at, it does not mean that you *have* to look at all of it, and using an interactive viewer like Trelliscope with cognostics that guide you to interesting areas of your data, it becomes a powerful, flexible, detailed exploratory visualization tool.
+
+For this example, a much more interesting display would be to plot all ~2700 routes in a single display. Currently, trelliscopejs pre-renders all the plots, and thanks to ggplot2 being very painfully slow, it would take 10-15 minutes to generate the display. Even with rendering on-the-fly, which was supported in the previous Shiny-powered Trelliscope package and which will be supported in trelliscopejs soon, ggplot2 can be too slow for a good user experience. Other plotting packages can be used with trelliscopejs that render much more quickly, and we will point to how to learn how to do this in the next section.
+
+A final point to make about larger Trelliscope displays is that in the future, as our vision for sparklyr with more arbitrary data structures and execution of R code, you will be able to generate trelliscopejs displays directly against a very large dataset on the cluster, essentially creating an interactive window into large datasets. This functionality does exist in the datadr/RHIPE world with the legacy Trelliscope package.
+
+## Trelliscope in the Tidyverse
+
+As mentioned in the previous section, if you don't want to use ggplot2 to generate panels, you are welcome to use other plotting librarys, including conceptually any [htmlwidget](http://gallery.htmlwidgets.org/) to generate the panels of your display. This goes beyond the scope and timing of this tutorial, but a good reference on this can be found [here](http://slides.com/hafen/trelliscopejs).
+
 
 ***
 **Your Turn:** Create another Trelliscope display showing all routes that originate from your favorite airport, or that originate or have destinations at various airports of interest.
@@ -487,16 +595,3 @@ cat('Your code goes here')
 ```
 
 ***
-
-
-## Providing Additional Cognostics
-
-TODO
-With facet_trelliscope, whatever variables are present in the data frame passed in to the ggplot command are automatically turned into cognostics.
-
-Can you think of other variables that would be useful for navigating the displays?
-
-## Trelliscope in the Tidyverse
-
-TODO: Note and quick example of creating Trelliscope displays in the Tidyverse (outside ggplot2/facet_trelliscope).
-
