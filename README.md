@@ -19,7 +19,7 @@ Install the following R packages with the following commands:
 
 ```r
 install.packages(c("devtools", "tidyverse", "nycflights13", "sparklyr", "digest",
-  "scales", "prettyunits", "httpuv", "xtable")
+  "scales", "prettyunits", "httpuv", "xtable"))
 devtools::install_github("hafen/trelliscopejs")
 ```
 
