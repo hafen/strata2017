@@ -356,7 +356,7 @@ Questions:
 
 We can visually investigate these questions by creating the same plot as above (mean delay vs. month with each carrier overlaid) for every route. As we will see, there are many routes, too many to look at all at once in a simple ggplot2 faceted plot. For this, we will turn to Trelliscope, which allows us to create large faceted displays and interactively navigate through the panels as we learn what is happening in each subset of the data.
 
-We can get the data into shape for this task by grouping by route (`origin` and `dest`), `month`, and `name`. Since we are looking at the mean delay, and some routes are traveled more rarely, we want to make sure we have enough data to compute a meaningful statistic. Because of this, we'll only look at routes that have, for a given route, carrier, and month, more than 50 flights.
+We can get the data into shape for this task by grouping by route (`origin` and `dest`), `month`, and `name`. Since we are looking at the mean delay, and some routes are traveled more rarely, we want to make sure we have enough data to compute a meaningful statistic. Because of this, we'll only look at routes that have, for a given route, carrier, and month, more than 25 flights.
 
 We need to create a new grouping of the large dataset using sparklyr. The dplyr code in the cell below defines a sparklyr pipeline performing the following operations:
 
@@ -604,3 +604,4 @@ cat('Your code goes here')
 ```
 
 ***
+
